@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Canvas</title>
+  <style>
+    #canvas {
+      border: 1px solid black;
+      width: 500px;
+      height: 500px;
+      position: relative;
+    }
+    .circle {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid red;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Canvas</h1>
+  <div id="canvas"></div>
+  <button id="save">Save Canvas</button>
+  <script>
+    let canvas = document.getElementById('canvas');
+    let circles = [];
+    let selectedCircle = null;
+
+    // Load existing canvas data
+    fetch('/load-canvas')
+      .then(response => response.json())
+      .then(data => {
+        if (data.circles) {
+          data.circles.forEach(circleData => {
+            createCircle(circleData.x, circleData.y, circleData.diameter);
+          });
+        }
+      });
+
+    canvas.addEventListener('click', function(e) {
+      if (e.target === canvas) {
+        let x = e.offsetX;
+        let y = e.offsetY;
+        let diameter = 50; // default diameter
+        createCircle(x, y, diameter);
+      }
+    });
+
+    function createCircle(x, y, diameter) {
+      let circle = document.createElement('div');
+      circle.classList.add('circle');
+      circle.style.left = (x - diameter / 2) + 'px';
+      circle.style.top = (y - diameter / 2) + 'px';
+      circle.style.width = diameter + 'px';
+      circle.style.height = diameter + 'px';
+      circle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        let newDiameter = prompt('Enter diameter in px:', diameter);
+        if (newDiameter) {
+          diameter = parseInt(newDiameter);
+          circle.style.width = diameter + 'px';
+          circle.style.height = diameter + 'px';
+          circle.style.left = (x - diameter / 2) + 'px';
+          circle.style.top = (y - diameter / 2) + 'px';
+        }
+      });
+      canvas.appendChild(circle);
+      circles.push({ x, y, diameter });
+    }
+
+    document.getElementById('save').addEventListener('click', function() {
+      fetch('/save-canvas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ data: { circles } })
+      })
+      .then(response => response.text())
+      .then(data => {
+        alert(data);
+      });
+    });
+  </script>
+</body>
+</html>
