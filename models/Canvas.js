@@ -10,8 +10,13 @@ const Canvas = sequelize.define('Canvas', {
     primaryKey: true,
     autoIncrement: true
   },
+  pipelineId: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
   data: {
-    type: DataTypes.JSONB
+    type: DataTypes.JSONB,
+    allowNull: false
   }
 });
 

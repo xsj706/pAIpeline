@@ -1,6 +1,6 @@
 // server.js
 
-require('dotenv').config();
+require('dotenv').config(); // Must be first
 
 const express = require('express');
 const session = require('express-session');
@@ -37,13 +37,14 @@ app.use('/', require('./routes'));
 sequelize.authenticate()
   .then(() => {
     console.log('Database connected...');
-    return sequelize.sync();
+    return sequelize.sync({ alter: true }); // Adjust tables to match models
   })
   .then(() => {
     console.log('Models synchronized.');
   })
   .catch(err => {
-    console.error('Error connecting to the database:', err);
+    console.error('Error connecting to the database:', err.message);
+    process.exit(1); // Exit the application with failure
   });
 
 // Start the server

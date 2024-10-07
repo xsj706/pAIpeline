@@ -8,12 +8,21 @@
       width: 500px;
       height: 500px;
       position: relative;
+      user-select: none; /* Prevent text selection during drag */
     }
     .circle {
       position: absolute;
       border-radius: 50%;
       border: 1px solid red;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(255, 0, 0, 0.1);
+    }
+    /* Optional: Highlight circle on hover */
+    .circle:hover {
+      background-color: rgba(255, 0, 0, 0.2);
     }
   </style>
 </head>
@@ -22,9 +31,17 @@
   <div id="canvas"></div>
   <button id="save">Save Canvas</button>
   <script>
-    let canvas = document.getElementById('canvas');
+    const canvas = document.getElementById('canvas');
+    const saveButton = document.getElementById('save');
     let circles = [];
     let selectedCircle = null;
+    let offsetX = 0;
+    let offsetY = 0;
+    let isDragging = false;
+    let dragThreshold = 5; // Minimum pixels moved to consider as drag
+    let dragDistance = 0;
+    let startX = 0;
+    let startY = 0;
 
     // Load existing canvas data
     fetch('/load-canvas')
@@ -37,48 +54,158 @@
         }
       });
 
+    // Create a new circle on canvas click
     canvas.addEventListener('click', function(e) {
-      if (e.target === canvas) {
-        let x = e.offsetX;
-        let y = e.offsetY;
-        let diameter = 50; // default diameter
-        createCircle(x, y, diameter);
-      }
+      // Prevent adding a circle when clicking on an existing circle
+      if (e.target !== canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const diameter = 50; // Default diameter
+      createCircle(x, y, diameter);
     });
 
     function createCircle(x, y, diameter) {
-      let circle = document.createElement('div');
+      const circle = document.createElement('div');
       circle.classList.add('circle');
-      circle.style.left = (x - diameter / 2) + 'px';
-      circle.style.top = (y - diameter / 2) + 'px';
-      circle.style.width = diameter + 'px';
-      circle.style.height = diameter + 'px';
+      circle.style.width = `${diameter}px`;
+      circle.style.height = `${diameter}px`;
+      circle.style.left = `${x - diameter / 2}px`;
+      circle.style.top = `${y - diameter / 2}px`;
+      circle.setAttribute('data-diameter', diameter);
+
+      // Event listeners for circle interactions
+      circle.addEventListener('mousedown', startDrag);
       circle.addEventListener('click', function(e) {
-        e.stopPropagation();
-        let newDiameter = prompt('Enter diameter in px:', diameter);
+        if (isDragging) {
+          // If dragging occurred, do not trigger click action
+          return;
+        }
+        e.stopPropagation(); // Prevent triggering canvas click
+        const currentDiameter = parseInt(circle.getAttribute('data-diameter'));
+        const newDiameter = prompt('Enter diameter in px:', currentDiameter);
         if (newDiameter) {
-          diameter = parseInt(newDiameter);
-          circle.style.width = diameter + 'px';
-          circle.style.height = diameter + 'px';
-          circle.style.left = (x - diameter / 2) + 'px';
-          circle.style.top = (y - diameter / 2) + 'px';
+          const parsedDiameter = parseInt(newDiameter);
+          if (!isNaN(parsedDiameter) && parsedDiameter > 0) {
+            // Update position to keep the circle centered after diameter change
+            const currentLeft = parseInt(circle.style.left);
+            const currentTop = parseInt(circle.style.top);
+            circle.style.width = `${parsedDiameter}px`;
+            circle.style.height = `${parsedDiameter}px`;
+            circle.style.left = `${currentLeft + (currentDiameter - parsedDiameter)/2}px`;
+            circle.style.top = `${currentTop + (currentDiameter - parsedDiameter)/2}px`;
+            circle.setAttribute('data-diameter', parsedDiameter);
+            // Update circles array
+            const index = circles.findIndex(c => c.element === circle);
+            if (index !== -1) {
+              circles[index].diameter = parsedDiameter;
+              circles[index].x = currentLeft + parsedDiameter / 2;
+              circles[index].y = currentTop + parsedDiameter / 2;
+            }
+          } else {
+            alert('Invalid diameter entered.');
+          }
         }
       });
+
       canvas.appendChild(circle);
-      circles.push({ x, y, diameter });
+      circles.push({ element: circle, x: x, y: y, diameter: diameter });
     }
 
-    document.getElementById('save').addEventListener('click', function() {
+    function startDrag(e) {
+      e.preventDefault();
+      selectedCircle = e.target;
+      isDragging = false;
+      dragDistance = 0;
+      const rect = canvas.getBoundingClientRect();
+      startX = e.clientX - rect.left;
+      startY = e.clientY - rect.top;
+      offsetX = e.clientX - rect.left - parseInt(selectedCircle.style.left);
+      offsetY = e.clientY - rect.top - parseInt(selectedCircle.style.top);
+
+      document.addEventListener('mousemove', drag);
+      document.addEventListener('mouseup', endDrag);
+    }
+
+    function drag(e) {
+      if (!selectedCircle) return;
+      const rect = canvas.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const currentY = e.clientY - rect.top;
+      const deltaX = currentX - startX;
+      const deltaY = currentY - startY;
+      dragDistance += Math.sqrt(Math.pow(deltaX, 2) + Math.pow(deltaY, 2));
+      startX = currentX;
+      startY = currentY;
+
+      if (dragDistance > dragThreshold) {
+        isDragging = true;
+      }
+
+      if (isDragging) {
+        let x = currentX - offsetX;
+        let y = currentY - offsetY;
+
+        // Constrain within canvas
+        const diameter = parseInt(selectedCircle.style.width);
+        x = Math.max(0, Math.min(x, canvas.clientWidth - diameter));
+        y = Math.max(0, Math.min(y, canvas.clientHeight - diameter));
+
+        selectedCircle.style.left = `${x}px`;
+        selectedCircle.style.top = `${y}px`;
+
+        // Update circles array
+        const circleData = circles.find(c => c.element === selectedCircle);
+        if (circleData) {
+          circleData.x = x + diameter / 2;
+          circleData.y = y + diameter / 2;
+        }
+      }
+    }
+
+    function endDrag(e) {
+      if (selectedCircle) {
+        // If dragging was minimal, consider it as a click
+        if (!isDragging && dragDistance < dragThreshold) {
+          // Do nothing; the click event will handle it
+        }
+      }
+      isDragging = false;
+      selectedCircle = null;
+      dragDistance = 0;
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', endDrag);
+    }
+
+    // Save canvas data
+    saveButton.addEventListener('click', function() {
+      const dataToSave = {
+        circles: circles.map(c => ({
+          x: c.x,
+          y: c.y,
+          diameter: c.diameter
+        }))
+      };
       fetch('/save-canvas', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ data: { circles } })
+        body: JSON.stringify({ data: dataToSave })
       })
-      .then(response => response.text())
+      .then(response => {
+        if (!response.ok) {
+          return response.text().then(text => { throw new Error(text); });
+        }
+        return response.text();
+      })
       .then(data => {
         alert(data);
+      })
+      .catch(err => {
+        console.error('Error saving canvas:', err);
+        alert(`Error saving canvas: ${err.message}`);
       });
     });
   </script>
