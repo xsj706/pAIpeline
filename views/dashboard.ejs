@@ -5,7 +5,40 @@
 </head>
 <body>
   <h1>Welcome, <%= user.username %></h1>
-  <a href="/<%= user.id %>/pipeline-123">Go to Canvas</a><br/>
-  <a href="/auth/logout">Logout</a>
+  <a href="/canvas/<%= user.id %>/pipeline-123">Go to Canvas</a><br/>
 </body>
 </html>
+  
+
+
+<!-- In views/dashboard.ejs -->
+<h1>Welcome, <%= user.username %></h1>
+
+<h2>Your Pipelines:</h2>
+
+<!-- Button to create a new pipeline -->
+<button onclick="createPipeline()">Create New Pipeline</button>
+
+<ul>
+  <% pipelines.forEach(pipeline => { %>
+    <li>
+      <a href="/canvas/<%= user.id %>/<%= pipeline.pipelineId %>">Pipeline: <%= pipeline.pipelineId %></a>
+    </li>
+  <% }); %>
+</ul>
+
+
+<!-- Button to create a new pipeline -->
+<button><a href="/auth/logout">Logout</a></button>
+  
+
+<script>
+function createPipeline() {
+  const newPipelineName = prompt("Enter the new pipeline name (lowercase, alphanumeric, '-' and '_' allowed):");
+  if (newPipelineName && /^[a-z0-9-_]+$/.test(newPipelineName)) {
+    window.location.href = `/canvas/new-pipeline/${newPipelineName}`;
+  } else {
+    alert('Invalid pipeline name. Only lowercase letters, numbers, hyphens, and underscores are allowed.');
+  }
+}
+</script>

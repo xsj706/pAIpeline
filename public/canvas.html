@@ -25,9 +25,10 @@
     let canvas = document.getElementById('canvas');
     let circles = [];
     let selectedCircle = null;
-
+    const pathParts = window.location.pathname.split('/');
+    const pipelineId = pathParts[pathParts.length - 1]; 
     // Load existing canvas data
-    fetch('/load-canvas')
+    fetch('/load-canvas/'+pipelineId)
       .then(response => response.json())
       .then(data => {
         if (data.circles) {

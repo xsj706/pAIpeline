@@ -12,7 +12,17 @@ const Canvas = sequelize.define('Canvas', {
   },
   data: {
     type: DataTypes.JSONB
-  }
+  },
+  pipelineId: {
+    type: DataTypes.INTEGER,
+    allowNull: true, // Change this to true to allow NULL values
+    references: {
+      model: 'Pipelines', // Name of the referenced table
+      key: 'id',
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'SET NULL', // Optional: Define behavior on delete
+  },
 });
 
 // Associations

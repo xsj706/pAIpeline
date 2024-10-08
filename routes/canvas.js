@@ -13,23 +13,53 @@ function ensureAuthenticated(req, res, next) {
 }
 
 // Dashboard
-router.get('/dashboard', ensureAuthenticated, (req, res) => {
-  res.render('dashboard', { user: req.user });
+router.get('/dashboard', ensureAuthenticated, async (req, res) => {
+  try {
+    const pipelines = await Canvas.findAll({ where: { userId: req.user.id } });
+    res.render('dashboard', { user: req.user, pipelines });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error loading dashboard');
+  }
 });
 
 // Canvas page
-router.get('/:userId/:pipelineId', ensureAuthenticated, (req, res) => {
+router.get('/canvas/:userId/:pipelineId', ensureAuthenticated, (req, res) => {
   if (req.user.id !== parseInt(req.params.userId)) {
     return res.status(403).send('Forbidden');
   }
   res.sendFile('canvas.html', { root: './public' });
 });
 
+
+
+// Route to create a new pipeline
+router.get('/new-pipeline/:pipelineName', ensureAuthenticated, async (req, res) => {
+  const { pipelineName } = req.params;
+  
+  try {
+    // Check if pipeline already exists for the user
+    const existingPipeline = await Canvas.findOne({ where: { userId: req.user.id, pipelineId: pipelineName } });
+    if (existingPipeline) {
+      return res.status(400).send('Pipeline with this name already exists.');
+    }
+
+    // Create a new pipeline entry
+    await Canvas.create({ userId: req.user.id, pipelineId: pipelineName, data: {} });
+    res.redirect(`/canvas/${req.user.id}/${pipelineName}`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error creating pipeline');
+  }
+});
+
+
 // Save canvas data
 router.post('/save-canvas', ensureAuthenticated, async (req, res) => {
   const { data } = req.body;
   try {
     await Canvas.create({ data, userId: req.user.id });
+    console.error(data);
     res.send('Canvas saved successfully');
   } catch (err) {
     console.error(err);
@@ -38,9 +68,14 @@ router.post('/save-canvas', ensureAuthenticated, async (req, res) => {
 });
 
 // Load canvas data
-router.get('/load-canvas', ensureAuthenticated, async (req, res) => {
+router.get('/load-canvas/:pipelineId', ensureAuthenticated, async (req, res) => {
   try {
-    const canvas = await Canvas.findOne({ where: { userId: req.user.id } });
+    const canvas = await Canvas.findOne({
+      where: {
+        userId: req.user.id,
+        pipelineId: req.params.pipelineId
+      }
+    });
     if (canvas) {
       res.json(canvas.data);
     } else {
